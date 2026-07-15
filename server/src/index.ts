@@ -1509,12 +1509,25 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
 })
 
 async function main() {
-  await runMigrations()
-  app.listen(env.PORT, () => {
-    console.log(`Sou do Bem API em http://localhost:${env.PORT}`)
+  // Sobe o HTTP primeiro para health/proxy; migra com retry (cold start do Postgres).
+  app.listen(env.PORT, '0.0.0.0', () => {
+    console.log(`Sou do Bem API em http://0.0.0.0:${env.PORT}`)
     console.log(`OpenRouter: ${env.OPENROUTER_API_KEY ? 'configurado' : 'SEM CHAVE'}`)
     console.log(`Modelo: ${env.OPENROUTER_MODEL}`)
+    console.log(`DATABASE host: ${env.DATABASE_URL.replace(/:[^:@/]+@/, ':***@')}`)
   })
+
+  for (let attempt = 1; attempt <= 30; attempt++) {
+    try {
+      await runMigrations()
+      console.log('Migrations OK')
+      return
+    } catch (e) {
+      console.error(`Migration attempt ${attempt}/30 failed:`, e)
+      await new Promise((r) => setTimeout(r, 2000))
+    }
+  }
+  console.error('Migrations failed after retries — API continua no ar para /health')
 }
 
 main().catch((e) => {
