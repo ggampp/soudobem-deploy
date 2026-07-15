@@ -23,24 +23,17 @@ services:
       context: ./server
       dockerfile: Dockerfile
     restart: unless-stopped
-    env_file:
-      - .env
     environment:
       # Dentro da rede Docker o host do banco é o service name
       DATABASE_URL: postgresql://${POSTGRES_USER:-soudobem}:${POSTGRES_PASSWORD:-soudobem}@postgres:5432/${POSTGRES_DB:-soudobem}
-      PORT: 3001
+      PORT: "3001"
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
       JWT_SECRET: ${JWT_SECRET:-dev-soudobem-secret-change-me}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-4o-mini}
       OPENROUTER_SITE_URL: ${OPENROUTER_SITE_URL:-http://localhost:8080}
-      OPENROUTER_SITE_NAME: ${OPENROUTER_SITE_NAME:-Sou do Bem Local}
-    depends_on:
-      postgres:
-        condition: service_healthy
-    # API só na rede interna; o nginx (web) faz proxy /api
-    expose:
-      - "3001"
+      OPENROUTER_SITE_NAME: ${OPENROUTER_SITE_NAME:-Sou do Bem}
+    # healthcheck mais tolerante no cold start (migrations + seed)
     healthcheck:
       test:
         [
@@ -51,8 +44,14 @@ services:
         ]
       interval: 10s
       timeout: 5s
-      retries: 12
-      start_period: 20s
+      retries: 30
+      start_period: 60s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # API só na rede interna; o nginx (web) faz proxy /api
+    expose:
+      - "3001"
 
   web:
     build:
