@@ -1,7 +1,6 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: soudobem-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-soudobem}
@@ -16,14 +15,13 @@ services:
       interval: 5s
       timeout: 5s
       retries: 15
-    ports:
-      - "5432:5432"
+    # Sem publish de host: evita conflito de porta no Forja/outros stacks
+    # Para dev local com DB externo, use docker-compose.override.yml
 
   api:
     build:
       context: ./server
       dockerfile: Dockerfile
-    container_name: soudobem-api
     restart: unless-stopped
     env_file:
       - .env
@@ -40,8 +38,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    ports:
-      - "3001:3001"
+    # API só na rede interna; o nginx (web) faz proxy /api
+    expose:
+      - "3001"
     healthcheck:
       test:
         [
@@ -61,12 +60,12 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_URL: ""
-    container_name: soudobem-web
     restart: unless-stopped
     depends_on:
       api:
         condition: service_healthy
     ports:
+      # Forja roteia o domínio para esta porta
       - "8080:80"
 
 volumes:

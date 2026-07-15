@@ -1,0 +1,9 @@
+# Copie para docker-compose.override.yml no desenvolvimento local
+# para publicar Postgres e API no host.
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+  api:
+    ports:
+      - "3001:3001"
