@@ -66,20 +66,32 @@ function companySeal(score: number): 'Ouro' | 'Prata' | 'Bronze' {
   return 'Bronze'
 }
 
+/** Liveness — não depende do DB (Forja/compose healthcheck). */
 app.get('/health', async (_req, res) => {
+  const key = env.OPENROUTER_API_KEY
+  let db = false
+  let dbError: string | undefined
   try {
     await query('SELECT 1')
-    const key = env.OPENROUTER_API_KEY
-    res.json({
-      ok: true,
-      db: true,
-      openrouter: Boolean(key),
-      openrouterKeyPrefix: key ? `${key.slice(0, 8)}…` : null,
-      model: env.OPENROUTER_MODEL,
-    })
+    db = true
   } catch (e) {
-    res.status(500).json({ ok: false, error: String(e) })
+    dbError = String(e)
   }
+  res.status(200).json({
+    ok: true,
+    db,
+    dbError: db ? undefined : dbError,
+    openrouter: Boolean(key),
+    openrouterKeyPrefix: key ? `${key.slice(0, 8)}…` : null,
+    model: env.OPENROUTER_MODEL,
+    databaseUrlHost: (() => {
+      try {
+        return new URL(env.DATABASE_URL.replace(/^postgresql:/, 'http:')).hostname
+      } catch {
+        return null
+      }
+    })(),
+  })
 })
 
 // —— Auth ——
