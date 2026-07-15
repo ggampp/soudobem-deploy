@@ -56,9 +56,10 @@ services:
     restart: unless-stopped
     depends_on:
       - api
-    ports:
-      # Porta canônica 80; Forja faz bind em 127.0.0.1:<port>
-      - "80:80"
+    # Portas de publish ficam no forja-override.yml (Forja injeta o bind correto).
+    # Em dev local, use docker-compose.override.yml com "8080:80".
+    expose:
+      - "80"
 
 volumes:
   soudobem_pg_data:
