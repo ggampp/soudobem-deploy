@@ -33,25 +33,19 @@ services:
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-4o-mini}
       OPENROUTER_SITE_URL: ${OPENROUTER_SITE_URL:-http://localhost:8080}
       OPENROUTER_SITE_NAME: ${OPENROUTER_SITE_NAME:-Sou do Bem}
-    # healthcheck mais tolerante no cold start (migrations + seed)
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 30
-      start_period: 60s
     depends_on:
       postgres:
         condition: service_healthy
     # API só na rede interna; o nginx (web) faz proxy /api
     expose:
       - "3001"
+    # Sem healthcheck: Forja/compose falhavam em "unhealthy" antes do cold start
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
 
   web:
     build:
@@ -61,8 +55,7 @@ services:
         VITE_API_URL: ""
     restart: unless-stopped
     depends_on:
-      api:
-        condition: service_healthy
+      - api
     ports:
       # Forja roteia o domínio para esta porta
       - "8080:80"
