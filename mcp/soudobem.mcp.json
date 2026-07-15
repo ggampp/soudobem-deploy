@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "soudobem-user-context": {
+      "command": "npx",
+      "args": ["tsx", "src/mcp/server.ts"],
+      "cwd": "${workspaceFolder}/server",
+      "env": {
+        "DATABASE_URL": "postgresql://soudobem:soudobem@localhost:5432/soudobem",
+        "JWT_SECRET": "dev-soudobem-secret-change-me",
+        "SOUDOBEM_USER_EMAIL": "ggampp@gmail.com"
+      }
+    }
+  }
+}
