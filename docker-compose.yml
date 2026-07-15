@@ -57,8 +57,8 @@ services:
     depends_on:
       - api
     ports:
-      # Forja roteia o domínio para esta porta
-      - "8080:80"
+      # Porta canônica 80; Forja faz bind em 127.0.0.1:<port>
+      - "80:80"
 
 volumes:
   soudobem_pg_data:
