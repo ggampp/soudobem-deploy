@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useApp } from '../context/AppContext'
+import { MarkdownText } from '../components/MarkdownText'
 import { Button, Input, Logo, PageHeader } from '../components/ui'
 
 const suggestions = [
@@ -65,13 +66,13 @@ export function IA() {
         {user.chat.map((m, i) => (
           <div
             key={i}
-            className={`max-w-[min(100%,42rem)] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+            className={`max-w-[min(100%,42rem)] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
               m.role === 'user'
-                ? 'ml-auto bg-primary text-primary-foreground'
+                ? 'ml-auto bg-primary text-primary-foreground whitespace-pre-wrap'
                 : 'bg-muted text-foreground'
             }`}
           >
-            {m.text}
+            {m.role === 'user' ? m.text : <MarkdownText text={m.text} />}
           </div>
         ))}
         {busy && (

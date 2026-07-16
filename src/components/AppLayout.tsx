@@ -192,22 +192,6 @@ function AppLayoutInner() {
 
       <div className="flex-1 flex flex-col min-w-0 min-h-0 h-dvh">
         <header className="sticky top-0 z-30 bg-background/85 backdrop-blur-xl border-b border-border/50 px-4 sm:px-5 lg:px-8 py-3 sm:py-3.5 flex items-center gap-3 shrink-0">
-          {/* Toggle também no header (desktop) quando útil */}
-          <button
-            type="button"
-            onClick={() => setCollapsed((v) => !v)}
-            className="hidden lg:flex min-h-10 min-w-10 rounded-xl items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition shrink-0"
-            aria-label={collapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
-            aria-expanded={!collapsed}
-            title={collapsed ? 'Expandir menu' : 'Recolher menu'}
-          >
-            {collapsed ? (
-              <ChevronRight className="h-5 w-5" aria-hidden />
-            ) : (
-              <ChevronLeft className="h-5 w-5" aria-hidden />
-            )}
-          </button>
-
           <NavLink to="/app" className="lg:hidden rounded-xl shrink-0" aria-label="Início Sou do Bem">
             <Logo size={36} showWordmark={false} />
           </NavLink>

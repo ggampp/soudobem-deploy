@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { Scale } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
+import { MarkdownText } from '../components/MarkdownText'
 import {
   Button,
   Card,
@@ -156,11 +157,13 @@ export function Mediacao() {
             {active.messages.map((m) => (
               <div
                 key={m.id}
-                className={`rounded-2xl px-4 py-3 text-sm ${
-                  m.role === 'user' ? 'bg-primary text-primary-foreground ml-8' : 'bg-muted mr-8'
+                className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                  m.role === 'user'
+                    ? 'bg-primary text-primary-foreground ml-8 whitespace-pre-wrap'
+                    : 'bg-muted mr-8'
                 }`}
               >
-                {m.text}
+                {m.role === 'user' ? m.text : <MarkdownText text={m.text} />}
               </div>
             ))}
           </div>

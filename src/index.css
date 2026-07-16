@@ -373,6 +373,22 @@ button:disabled,
   cursor: not-allowed;
 }
 
+/* Respostas da IA (markdown leve) */
+.markdown-text strong {
+  font-weight: 650;
+  color: inherit;
+}
+.markdown-text em {
+  font-style: italic;
+}
+.markdown-text p:first-child,
+.markdown-text h3:first-child,
+.markdown-text h4:first-child,
+.markdown-text h5:first-child,
+.markdown-text h6:first-child {
+  margin-top: 0;
+}
+
 /* Form helpers */
 .field-label {
   display: block;
@@ -403,7 +419,8 @@ button:disabled,
   min-height: 44px;
   border-radius: 1rem;
   border: 1px solid var(--color-border);
-  background: var(--color-card);
+  /* background-color (não shorthand) — evita resetar background-image do Select */
+  background-color: var(--color-card);
   padding: 0.625rem 1rem;
   font-size: 1rem;
   line-height: 1.5;
@@ -411,6 +428,18 @@ button:disabled,
   transition:
     border-color var(--duration-fast) ease,
     box-shadow var(--duration-fast) ease;
+}
+
+/* Select nativo: seta única à direita do valor (não repetida no fundo) */
+.select-base {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 2.5rem;
+  background-color: var(--color-card);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23524c40' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  background-size: 1rem;
 }
 
 /* Busca do header: padding à esquerda da lupa (evita placeholder atrás do ícone) */
