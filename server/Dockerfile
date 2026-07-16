@@ -13,5 +13,5 @@ ENV NODE_ENV=production
 ENV PORT=3001
 EXPOSE 3001
 
-# rebuild bump: forja-2026-07-15
+# rebuild bump: forja-2026-07-16-schema
 CMD ["npx", "tsx", "src/index.ts"]

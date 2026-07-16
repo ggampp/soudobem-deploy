@@ -1,7 +1,293 @@
+import { readFileSync, existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { pool } from './db.js'
 
-/** Migrações idempotentes (volume Docker existente). */
+const __dirname = dirname(fileURLToPath(import.meta.url))
+
+/** Schema base (init.sql) — idempotente para volumes Forja/Docker sem initdb. */
+async function ensureBaseSchema() {
+  await pool.query(`
+    CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+    CREATE TABLE IF NOT EXISTS users (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      name TEXT NOT NULL,
+      bio TEXT,
+      city TEXT,
+      role TEXT NOT NULL DEFAULT 'pessoa',
+      onboarded BOOLEAN NOT NULL DEFAULT FALSE,
+      score INT NOT NULL DEFAULT 70,
+      seal TEXT NOT NULL DEFAULT 'Confiável',
+      streak_days INT NOT NULL DEFAULT 0,
+      goodcoins INT NOT NULL DEFAULT 500,
+      hearts INT NOT NULL DEFAULT 0,
+      dim_confianca INT NOT NULL DEFAULT 70,
+      dim_empatia INT NOT NULL DEFAULT 70,
+      dim_etica INT NOT NULL DEFAULT 70,
+      dim_cooperacao INT NOT NULL DEFAULT 70,
+      dim_responsabilidade INT NOT NULL DEFAULT 70,
+      challenge JSONB NOT NULL DEFAULT '{}'::jsonb,
+      settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+      achievements TEXT[] NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS method_pillars (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      pillar_key TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL,
+      practices TEXT[] NOT NULL DEFAULT '{}',
+      progress INT NOT NULL DEFAULT 0,
+      UNIQUE (user_id, pillar_key)
+    );
+
+    CREATE TABLE IF NOT EXISTS relations (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      score INT NOT NULL DEFAULT 70,
+      notes TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_interaction_at TIMESTAMPTZ
+    );
+
+    CREATE TABLE IF NOT EXISTS relation_evaluations (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      relation_id UUID NOT NULL REFERENCES relations(id) ON DELETE CASCADE,
+      confianca INT NOT NULL,
+      empatia INT NOT NULL,
+      etica INT NOT NULL,
+      cooperacao INT NOT NULL,
+      responsabilidade INT NOT NULL,
+      average INT NOT NULL,
+      note TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS goodcoin_ledger (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      label TEXT NOT NULL,
+      amount INT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS notifications (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      href TEXT,
+      read BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
+      content TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS mediations (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      with_whom TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'aberta' CHECK (status IN ('aberta', 'acordo', 'resolvida')),
+      notes TEXT,
+      agreement TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS mediation_messages (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      mediation_id UUID NOT NULL REFERENCES mediations(id) ON DELETE CASCADE,
+      role TEXT NOT NULL CHECK (role IN ('user', 'ai', 'system')),
+      content TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS community_posts (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+      author_name TEXT NOT NULL,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      tags TEXT[] NOT NULL DEFAULT '{}',
+      likes INT NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS post_likes (
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      post_id UUID NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
+      PRIMARY KEY (user_id, post_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS companies (
+      id UUID PRIMARY KEY,
+      name TEXT NOT NULL,
+      initials TEXT NOT NULL,
+      category TEXT NOT NULL,
+      seal TEXT NOT NULL,
+      score INT NOT NULL,
+      city TEXT NOT NULL,
+      state TEXT NOT NULL,
+      description TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS benefits (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      company_id UUID NOT NULL REFERENCES companies(id),
+      type TEXT NOT NULL,
+      value_label TEXT NOT NULL,
+      cost INT NOT NULL,
+      featured BOOLEAN NOT NULL DEFAULT FALSE
+    );
+
+    CREATE TABLE IF NOT EXISTS influencers (
+      id UUID PRIMARY KEY,
+      name TEXT NOT NULL,
+      handle TEXT NOT NULL,
+      niche TEXT NOT NULL,
+      bio TEXT NOT NULL,
+      score INT NOT NULL,
+      reach TEXT NOT NULL,
+      engagement TEXT NOT NULL,
+      verified BOOLEAN NOT NULL DEFAULT FALSE,
+      rising BOOLEAN NOT NULL DEFAULT FALSE
+    );
+
+    CREATE TABLE IF NOT EXISTS partners (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      discount TEXT NOT NULL,
+      hearts_required INT NOT NULL DEFAULT 0,
+      active BOOLEAN NOT NULL DEFAULT TRUE,
+      address TEXT,
+      company_id UUID REFERENCES companies(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS causes (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL,
+      raised INT NOT NULL DEFAULT 0,
+      goal INT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS cause_contributions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      cause_id TEXT NOT NULL REFERENCES causes(id),
+      amount_gc INT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS redeemed_benefits (
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      benefit_id TEXT NOT NULL REFERENCES benefits(id),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (user_id, benefit_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS company_reviews (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      company_id UUID NOT NULL REFERENCES companies(id),
+      rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+      comment TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (user_id, company_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS favorite_companies (
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      PRIMARY KEY (user_id, company_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS following_influencers (
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      influencer_id UUID NOT NULL REFERENCES influencers(id) ON DELETE CASCADE,
+      PRIMARY KEY (user_id, influencer_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS community_events (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      event_date TIMESTAMPTZ NOT NULL,
+      location TEXT NOT NULL,
+      description TEXT NOT NULL,
+      attendees INT NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS event_rsvps (
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      event_id TEXT NOT NULL REFERENCES community_events(id) ON DELETE CASCADE,
+      PRIMARY KEY (user_id, event_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS library_items (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      minutes INT NOT NULL,
+      pillar TEXT,
+      summary TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS library_completions (
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      item_id TEXT NOT NULL REFERENCES library_items(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (user_id, item_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_relations_user ON relations(user_id);
+    CREATE INDEX IF NOT EXISTS idx_chat_user ON chat_messages(user_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_ledger_user ON goodcoin_ledger(user_id, created_at DESC);
+  `)
+}
+
+/** Catálogo seed se empresas ainda vazias (volume sem docker-entrypoint seed). */
+async function ensureCatalogSeed() {
+  const c = await pool.query(`SELECT COUNT(*)::int AS n FROM companies`)
+  if ((c.rows[0]?.n ?? 0) > 0) return
+
+  const candidates = [
+    join(__dirname, '../db/seed.sql'),
+    join(process.cwd(), 'db/seed.sql'),
+    join(process.cwd(), 'server/db/seed.sql'),
+  ]
+  const path = candidates.find((p) => existsSync(p))
+  if (!path) {
+    console.warn('seed.sql não encontrado — catálogo vazio')
+    return
+  }
+  const sql = readFileSync(path, 'utf8')
+  await pool.query(sql)
+  console.log('Catalog seed OK from', path)
+}
+
+/** Migrações idempotentes (volume Docker/Forja existente). */
 export async function runMigrations() {
+  await ensureBaseSchema()
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS score_events (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -105,6 +391,8 @@ export async function runMigrations() {
     UPDATE users SET role = 'executivo' WHERE role = 'Executivo';
     ALTER TABLE users ALTER COLUMN role SET DEFAULT 'pessoa';
   `)
+
+  await ensureCatalogSeed()
 
   // Seed de territórios (tenants) se vazio
   const t = await pool.query(`SELECT COUNT(*)::int AS n FROM tenants`)
